@@ -178,10 +178,12 @@ func (srv *Server) GetGPSList() []models.GPSInfo {
 
 func (srv *Server) handle(conn *conn) {
 	defer func() {
-		elog.Info(1, conn.Conn.LocalAddr().String()+" - Connect close - "+time.Now().Local().String())
+		elog.Info(1, fmt.Sprintf("%s - connect close - %s", conn.Conn.LocalAddr().String(), time.Now().Local().Format("02.01.2006 15:04:05")))
 		conn.Close()
 		srv.deleteConn(conn)
 	}()
+
+	elog.Info(1, fmt.Sprintf("%s - new connect - %s", conn.Conn.LocalAddr().String(), time.Now().Local().Format("02.01.2006 15:04:05")))
 
 	input := make([]byte, srv.MaxReadBytes)
 
@@ -199,6 +201,7 @@ func (srv *Server) handle(conn *conn) {
 		}
 
 		if strings.HasPrefix(string(input[:reqlen]), "getinfo") {
+			elog.Info(1, fmt.Sprintf("%s - get info - %s", conn.Conn.LocalAddr().String(), time.Now().Local().Format("02.01.2006 15:04:05")))
 			var port models.PortInfo
 			port.Name = srv.Addr
 			port.Gps = srv.GetGPSList()
@@ -215,6 +218,11 @@ func (srv *Server) handle(conn *conn) {
 			if gps.GPS.Name != "" {
 				srv.SetGPS(gps.GPS)
 			}
+
+			elog.Info(1, fmt.Sprintf("%s - GPS :%s - %s",
+				conn.Conn.LocalAddr().String(),
+				gps.GPS.Name,
+				time.Now().Local().Format("02.01.2006 15:04:05")))
 
 			if err != nil {
 				conn.Send(GetBadPacketByte(gps))
