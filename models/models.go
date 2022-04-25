@@ -46,7 +46,7 @@ func (g *GPSInfo) SaveToError(path string) error {
 		defer file.Close()
 		_, err := file.WriteString("- " + g.LastError + "\r\n" +
 			time.Now().Local().Format("02.01.2006 15:04:05") + "\r\n" +
-			g.GpsD.DateTime.Format("02.01.06\t") + g.GpsD.ToString())
+			g.GpsD.DateTime.Format("02.01.06 ") + g.GpsD.ToString())
 		return err
 	}
 }
