@@ -112,3 +112,11 @@ func makeSlicePort(s []string) ([]string, error) {
 	}
 	return nil, errors.New("bad slice")
 }
+
+func GetPortAdr(s string) string {
+	sl := strings.Split(s, ":")
+	if len(sl) != 2 {
+		return s
+	}
+	return sl[1]
+}

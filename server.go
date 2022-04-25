@@ -13,6 +13,7 @@ import (
 	"gps_clients/server_gps_service/clients"
 	"gps_clients/server_gps_service/config"
 	"gps_clients/server_gps_service/models"
+	"gps_clients/server_gps_service/utils"
 )
 
 type SrvFuncer interface {
@@ -178,12 +179,18 @@ func (srv *Server) GetGPSList() []models.GPSInfo {
 
 func (srv *Server) handle(conn *conn) {
 	defer func() {
-		elog.Info(1, fmt.Sprintf("%s - connect close - %s", conn.Conn.LocalAddr().String(), time.Now().Local().Format("02.01.2006 15:04:05")))
+		elog.Info(1, fmt.Sprintf("%s<-%s - connect close - %s",
+			utils.GetPortAdr(conn.Conn.LocalAddr().String()),
+			utils.GetPortAdr(conn.Conn.RemoteAddr().String()),
+			time.Now().Local().Format("02.01.2006 15:04:05")))
 		conn.Close()
 		srv.deleteConn(conn)
 	}()
 
-	elog.Info(1, fmt.Sprintf("%s - new connect - %s", conn.Conn.LocalAddr().String(), time.Now().Local().Format("02.01.2006 15:04:05")))
+	elog.Info(1, fmt.Sprintf("%s<-%s - new connect - %s",
+		utils.GetPortAdr(conn.Conn.LocalAddr().String()),
+		utils.GetPortAdr(conn.Conn.RemoteAddr().String()),
+		time.Now().Local().Format("02.01.2006 15:04:05")))
 
 	input := make([]byte, srv.MaxReadBytes)
 
@@ -201,7 +208,10 @@ func (srv *Server) handle(conn *conn) {
 		}
 
 		if strings.HasPrefix(string(input[:reqlen]), "getinfo") {
-			elog.Info(1, fmt.Sprintf("%s - get info - %s", conn.Conn.LocalAddr().String(), time.Now().Local().Format("02.01.2006 15:04:05")))
+			elog.Info(1, fmt.Sprintf("%s<-%s - get info - %s",
+				utils.GetPortAdr(conn.Conn.LocalAddr().String()),
+				utils.GetPortAdr(conn.Conn.RemoteAddr().String()),
+				time.Now().Local().Format("02.01.2006 15:04:05")))
 			var port models.PortInfo
 			port.Name = srv.Addr
 			port.Gps = srv.GetGPSList()
@@ -219,15 +229,22 @@ func (srv *Server) handle(conn *conn) {
 				srv.SetGPS(gps.GPS)
 			}
 
-			elog.Info(1, fmt.Sprintf("%s - GPS :%s - %s",
-				conn.Conn.LocalAddr().String(),
-				gps.GPS.Name,
-				time.Now().Local().Format("02.01.2006 15:04:05")))
-
 			if err != nil {
+				elog.Error(1, fmt.Sprintf("%s<-%s - GPS :%s - %s - %s",
+					utils.GetPortAdr(conn.Conn.LocalAddr().String()),
+					utils.GetPortAdr(conn.Conn.RemoteAddr().String()),
+					gps.GPS.Name,
+					err.Error(),
+					time.Now().Local().Format("02.01.2006 15:04:05")))
 				conn.Send(GetBadPacketByte(gps))
 				continue
 			}
+
+			elog.Info(1, fmt.Sprintf("%s<-%s - GPS :%s - %s",
+				utils.GetPortAdr(conn.Conn.LocalAddr().String()),
+				utils.GetPortAdr(conn.Conn.RemoteAddr().String()),
+				gps.GPS.Name,
+				time.Now().Local().Format("02.01.2006 15:04:05")))
 
 			conn.Send(gps.GPS.CountData)
 			continue

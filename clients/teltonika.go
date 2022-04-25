@@ -26,6 +26,11 @@ func (T *Teltonika) ReturnError(err string) error {
 }
 
 func (T *Teltonika) ParseData() error {
+	defer func() {
+		if recMes := recover(); recMes != nil {
+			utils.AddToLog(utils.GetProgramPath()+"-error.txt", recMes)
+		}
+	}()
 	T.GPS.LastConnect = time.Now().Local().Format("02.01.2006 15:04:05")
 	T.GPS.LastInfo = ""
 	T.GPS.LastError = "no data"
@@ -34,6 +39,10 @@ func (T *Teltonika) ParseData() error {
 		lenPack, err := strconv.ParseInt(hex.EncodeToString(T.Input[:2]), 16, 64)
 		if err != nil {
 			return T.ReturnError("error parse length packet " + err.Error())
+		}
+
+		if lenPack != 15 {
+			return T.ReturnError(fmt.Sprintf("error length name 15: %d", lenPack))
 		}
 
 		var i int64
