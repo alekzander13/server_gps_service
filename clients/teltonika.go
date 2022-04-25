@@ -41,8 +41,8 @@ func (T *Teltonika) ParseData() error {
 			return T.ReturnError("error parse length packet " + err.Error())
 		}
 
-		if lenPack != 15 {
-			return T.ReturnError(fmt.Sprintf("error length name 15: %d", lenPack))
+		if int(lenPack+2) != len(T.Input) {
+			return T.ReturnError(fmt.Sprintf("error length name: %d != %d", lenPack, len(T.Input)-2))
 		}
 
 		var i int64
