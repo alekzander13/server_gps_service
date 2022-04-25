@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/alekzander13/server_gps_service/models"
-	"github.com/alekzander13/server_gps_service/utils"
+	"gps_clients/server_gps_service/hash"
+	"gps_clients/server_gps_service/models"
+	"gps_clients/server_gps_service/utils"
 )
 
 type Teltonika models.ProtocolModel
@@ -71,7 +72,7 @@ func (T *Teltonika) ParseData() error {
 		return T.ReturnError("error parse crc packet " + err.Error())
 	}
 
-	dataCRC := utils.CheckSumCRC16(T.Input)
+	dataCRC := hash.CheckSumCRC16(T.Input)
 
 	if origCRC != uint64(dataCRC) {
 		return T.ReturnError(fmt.Sprintf("error crc sum: origCRC= %d, dataCRC= %d\n", origCRC, dataCRC))

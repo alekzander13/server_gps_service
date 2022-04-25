@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alekzander13/server_gps_service/config"
-	"github.com/alekzander13/server_gps_service/utils"
+	"gps_clients/server_gps_service/config"
+	"gps_clients/server_gps_service/utils"
+
 	"golang.org/x/sys/windows/svc"
 )
 

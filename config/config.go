@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/alekzander13/server_gps_service/utils"
+	"gps_clients/server_gps_service/utils"
 )
 
 var Config Configuration

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alekzander13/include/gps_clients/clients"
-	"github.com/alekzander13/include/gps_clients/config"
-	"github.com/alekzander13/include/gps_clients/models"
+	"gps_clients/server_gps_service/clients"
+	"gps_clients/server_gps_service/config"
+	"gps_clients/server_gps_service/models"
 )
 
 type SrvFuncer interface {

@@ -3,11 +3,10 @@ package models
 import (
 	"errors"
 	"fmt"
+	"gps_clients/server_gps_service/utils"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/alekzander13/server_gps_service/utils"
 )
 
 type ServerInfo struct {

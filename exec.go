@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"github.com/alekzander13/include/gps_clients/config"
-	"github.com/alekzander13/include/utils"
+	"gps_clients/server_gps_service/config"
+	"gps_clients/server_gps_service/utils"
 )
 
 var servers map[string]*Server
