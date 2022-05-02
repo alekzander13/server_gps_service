@@ -51,6 +51,41 @@ func (g *GPSInfo) SaveToError(path string) error {
 	}
 }
 
+func (g *GPSInfo) SaveErrorList(path string, sl []GPSInfo) error {
+	if len(sl) < 1 {
+		return nil
+	}
+
+	if path == "" {
+		path = utils.GetPathWhereExe()
+	}
+	path += "/Error/"
+
+	if err := os.MkdirAll(path, 0777); err != nil {
+		return err
+	}
+
+	path += g.Name + ".txt"
+
+	strToSave := ""
+
+	for _, v := range sl {
+		strToSave += fmt.Sprintf("-%s \r\n%s\r\n%s %s\r\n",
+			v.LastError,
+			time.Now().Local().Format("02.01.2006 15:04:05"),
+			v.GpsD.DateTime.Format("02.01.06"),
+			v.GpsD.ToString())
+	}
+
+	if file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0777); err != nil {
+		return err
+	} else {
+		defer file.Close()
+		_, err := file.WriteString(strToSave)
+		return err
+	}
+}
+
 func (g *GPSInfo) SaveToFile(path string) error {
 	if path == "" {
 		path = utils.GetPathWhereExe()
@@ -70,6 +105,51 @@ func (g *GPSInfo) SaveToFile(path string) error {
 		_, err := file.WriteString(g.GpsD.ToString())
 		return err
 	}
+}
+
+func (g *GPSInfo) SaveToFileList(path string, info map[string][]GPSData) error {
+	if len(info) < 1 {
+		return nil
+	}
+
+	if path == "" {
+		path = utils.GetPathWhereExe()
+	}
+
+	for d, v := range info {
+		fmt.Println("save list data", len(v))
+		if len(v) < 1 {
+			continue
+		}
+		p, err := time.Parse("020106", d)
+		if err != nil {
+			return err
+		}
+
+		path += p.Format("/06/01/02/")
+
+		if err := os.MkdirAll(path, 0777); err != nil {
+			return err
+		}
+
+		path += g.Name + ".txt"
+
+		strToSave := ""
+		for _, s := range v {
+			strToSave += fmt.Sprintf("%s", s.ToString())
+		}
+		if strToSave != "" {
+			if file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0777); err != nil {
+				return err
+			} else {
+				defer file.Close()
+				_, err := file.WriteString(strToSave)
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (g *GPSInfo) Chk(d GPSData, c ChkParams) error {

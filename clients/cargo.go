@@ -19,7 +19,6 @@ func (T *Cargo) GetBadPacketByte() []byte {
 }
 
 func (T *Cargo) ReturnError(err string) error {
-	T.GPS.CountData = []byte{0, 0, 0, 0}
 	T.GPS.LastError = err
 	return errors.New(T.GPS.LastError)
 }
@@ -97,7 +96,7 @@ func (T *Cargo) ParseData() error {
 	return nil
 }
 
-func (T *Cargo) ParceGPSData8Codec(input []byte) {
+func (T *Cargo) ParceGPSData8Codec(input []byte) error {
 	T.GPS.LastError = ""
 	T.GPS.LastInfo = ""
 
@@ -106,8 +105,12 @@ func (T *Cargo) ParceGPSData8Codec(input []byte) {
 
 	posInInput := 1
 
+	mapToSave := make(map[string][]models.GPSData)
+	var listError []models.GPSInfo
+
 	for i := 0; i < countData; i++ {
 		var gpsData models.GPSData
+		T.GPS.LastError = ""
 
 		data := input[posInInput : posInInput+8]
 		posInInput += 8
@@ -267,26 +270,28 @@ func (T *Cargo) ParceGPSData8Codec(input []byte) {
 		err = T.GPS.Chk(gpsData, T.ChkPar)
 		if err != nil {
 			T.GPS.LastError = err.Error()
-		} else {
-			T.GPS.LastError = ""
 		}
 
 		T.GPS.LastInfo = gpsData.DateTime.Format("02.01.06 ") + gpsData.ToString()
 
 		if T.GPS.LastError != "" || err != nil {
-			//save to error
 			var errGPS models.GPSInfo
 			errGPS = T.GPS
 			errGPS.GpsD = gpsData
-			if err := errGPS.SaveToError(T.Path); err != nil {
-				utils.ChkErrFatal(err)
-			}
+			listError = append(listError, errGPS)
 		} else {
-			//save to file
 			T.GPS.GpsD = gpsData
-			if err := T.GPS.SaveToFile(T.Path); err != nil {
-				utils.ChkErrFatal(err)
-			}
+			mapToSave[gpsData.DateTime.Format("020106")] = append(mapToSave[gpsData.DateTime.Format("020106")], gpsData)
 		}
 	}
+
+	if err := T.GPS.SaveErrorList(T.Path, listError); err != nil {
+		return err
+	}
+
+	if err := T.GPS.SaveToFileList(T.Path, mapToSave); err != nil {
+		return err
+	}
+
+	return nil
 }

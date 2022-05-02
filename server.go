@@ -161,8 +161,8 @@ func (srv *Server) SetGPS(gps models.GPSInfo) {
 func (srv *Server) GetGPS(name string) models.GPSInfo {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
-	if _, ok := srv.GPS[name]; !ok {
-		return srv.GPS[name]
+	if v, ok := srv.GPS[name]; ok {
+		return v
 	}
 	return models.GPSInfo{}
 }
@@ -194,7 +194,7 @@ func (srv *Server) handle(conn *conn) {
 
 	input := make([]byte, srv.MaxReadBytes)
 
-	gps := &clients.Teltonika{}
+	gps := &clients.GryphonM01{} // GryphonM01{} Teltonika{}
 	gps.ChkPar.Sat = config.Config.MinSatel
 	gps.Path = config.Config.PathToSave
 
@@ -222,6 +222,10 @@ func (srv *Server) handle(conn *conn) {
 			conn.Send(body)
 		} else {
 			gps.Input = input[:reqlen]
+
+			if gps.GPS.Name != "" {
+				gps.GPS = srv.GetGPS(gps.GPS.Name)
+			}
 
 			err = ParseGPSData(gps)
 

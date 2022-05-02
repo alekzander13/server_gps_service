@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -119,4 +120,47 @@ func GetPortAdr(s string) string {
 		return s
 	}
 	return sl[1]
+}
+
+func ToFixedFloat(num float64, precision int) float64 {
+	output := math.Pow(10, float64(precision))
+	return float64(roundFloat(num*output)) / output
+}
+
+func roundFloat(num float64) int {
+	return int(num + math.Copysign(0.5, num))
+}
+
+func ConvertCoordToFloat(str string) float64 {
+	res, err := strconv.ParseFloat(str, 64)
+	//res, err := strconv.ParseFloat(strings.ReplaceAll(str, ",", "."), 64)
+	if err != nil {
+		return -1
+	}
+
+	//return res
+	return converCoord(res)
+}
+
+func converCoord(coord float64) float64 {
+	/*
+		temp := []rune(fmt.Sprintf("%f", coord/100))
+		gr := string(temp[:2])
+		min := string(temp[2:])
+		minfl, err := strconv.ParseFloat(min, 10)
+		if err != nil {
+			return -1
+		}
+		grfl, err := strconv.ParseFloat(gr, 10)
+		if err != nil {
+			return -1
+		}
+		return grfl + (minfl * 100 / 60)
+	*/
+	coord /= 100
+	gr := int(coord)
+	min := coord - float64(gr)
+	min = min * 100 / 60
+	//return float64(gr) + min
+	return ToFixedFloat(float64(gr)+min, 7)
 }

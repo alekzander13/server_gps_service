@@ -20,7 +20,6 @@ func (T *Teltonika) GetBadPacketByte() []byte {
 }
 
 func (T *Teltonika) ReturnError(err string) error {
-	T.GPS.CountData = []byte{0}
 	T.GPS.LastError = err
 	return errors.New(T.GPS.LastError)
 }
@@ -88,29 +87,33 @@ func (T *Teltonika) ParseData() error {
 	}
 
 	CodecID := hex.EncodeToString([]byte{T.Input[0]})
+	T.Input = T.Input[1:]
 	switch CodecID {
 	case "08":
-		T.GPS = parceGPSData8Codec(T.Input[1:], T.GPS, T.ChkPar, T.Path)
+		return T.ParceGPSData8Codec()
 	case "8e":
-		T.GPS = parceGPSData8ECodec(T.Input[1:], T.GPS, T.ChkPar, T.Path)
+		return T.ParceGPSData8ECodec()
 	default:
 		return T.ReturnError("error codecID " + CodecID)
 	}
-
-	return nil
 }
 
-func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkParams, path string) models.GPSInfo {
-	GPS.LastError = ""
-	GPS.LastInfo = ""
+func (T *Teltonika) ParceGPSData8ECodec() error {
+	input := T.Input
+
+	T.GPS.LastError = ""
+	T.GPS.LastInfo = ""
 
 	countData := int(input[0])
-	GPS.CountData = []byte{0, 0, 0, byte(int8(countData))}
+	T.GPS.CountData = []byte{0, 0, 0, byte(int8(countData))}
 
 	posInInput := 1
 
+	mapToSave := make(map[string][]models.GPSData)
+	var listError []models.GPSInfo
+
 	for i := 0; i < countData; i++ {
-		GPS.LastError = ""
+		T.GPS.LastError = ""
 		var gpsData models.GPSData
 
 		data := input[posInInput : posInInput+8]
@@ -122,7 +125,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		if err == nil {
 			gpsData.DateTime = time.Unix(intData/1000, 0).In(time.UTC)
 		} else {
-			GPS.LastError = "error parse time: " + err.Error()
+			T.GPS.LastError = "error parse time: " + err.Error()
 		}
 
 		posInInput++ //Prioritet
@@ -135,7 +138,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		if err == nil {
 			gpsData.Lng = float64(intData) / 10000000.0
 		} else {
-			GPS.LastError = "error parse lng: " + err.Error()
+			T.GPS.LastError = "error parse lng: " + err.Error()
 		}
 
 		//Lat
@@ -146,7 +149,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		if err == nil {
 			gpsData.Lat = float64(intData) / 10000000.0
 		} else {
-			GPS.LastError = "error parse lat: " + err.Error()
+			T.GPS.LastError = "error parse lat: " + err.Error()
 		}
 
 		//2b - Altitude In meters above sea level1
@@ -155,7 +158,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		encodedStr = hex.EncodeToString(data)
 		gpsData.Alt, err = strconv.ParseInt(encodedStr, 16, 32)
 		if err != nil {
-			GPS.LastError = "error parse altitude: " + err.Error()
+			T.GPS.LastError = "error parse altitude: " + err.Error()
 		}
 
 		//2b - Angle In degrees, 0 is north, increasing clock-wise 1
@@ -164,7 +167,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		encodedStr = hex.EncodeToString(data)
 		gpsData.Angle, err = strconv.ParseInt(encodedStr, 16, 32)
 		if err != nil {
-			GPS.LastError = "error parse angle: " + err.Error()
+			T.GPS.LastError = "error parse angle: " + err.Error()
 		}
 
 		//1b - Satellites Number of visible satellites1
@@ -177,7 +180,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		encodedStr = hex.EncodeToString(data)
 		gpsData.Speed, err = strconv.ParseInt(encodedStr, 16, 64)
 		if err != nil {
-			GPS.LastError = "error parse speed: " + err.Error()
+			T.GPS.LastError = "error parse speed: " + err.Error()
 		}
 
 		//posInInput = 34
@@ -189,7 +192,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 		posInInput += 2
 		countAllIO, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 		if err != nil {
-			GPS.LastError = "error parse io element count: " + err.Error()
+			T.GPS.LastError = "error parse io element count: " + err.Error()
 		} else {
 			var c int64
 			for c = 0; c < countAllIO; c++ {
@@ -200,7 +203,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 					posInInput += 2
 					countIO, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64) // Кол-во датчиков разрядности 1 байт
 					if err != nil {
-						GPS.LastError = "error parse io element count 1b: " + err.Error()
+						T.GPS.LastError = "error parse io element count 1b: " + err.Error()
 					} else {
 						var i int64
 						for i = 0; i < countIO; i++ {
@@ -208,7 +211,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 							posInInput += 2
 							id, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 							if err != nil {
-								GPS.LastError = "error parse io element id 1b: " + err.Error()
+								T.GPS.LastError = "error parse io element id 1b: " + err.Error()
 							} else {
 								d := int(input[posInInput])
 								posInInput++
@@ -222,7 +225,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 					posInInput += 2
 					countIO, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64) // Кол-во датчиков разрядности 2 байта
 					if err != nil {
-						GPS.LastError = "error parse io element count 2b: " + err.Error()
+						T.GPS.LastError = "error parse io element count 2b: " + err.Error()
 					} else {
 						var i int64
 						for i = 0; i < countIO; i++ {
@@ -230,7 +233,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 							posInInput += 2
 							id, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 							if err != nil {
-								GPS.LastError = "error parse io element id 2b: " + err.Error()
+								T.GPS.LastError = "error parse io element id 2b: " + err.Error()
 							} else {
 								data = input[posInInput : posInInput+2]
 								posInInput += 2
@@ -245,7 +248,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 										gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 									}
 								} else {
-									GPS.LastError = "error parse io param 2b: " + err.Error()
+									T.GPS.LastError = "error parse io param 2b: " + err.Error()
 								}
 							}
 
@@ -256,7 +259,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 					posInInput += 2
 					countIO, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64) // Кол-во датчиков разрядности 4 байта
 					if err != nil {
-						GPS.LastError = "error parse io element count 4b: " + err.Error()
+						T.GPS.LastError = "error parse io element count 4b: " + err.Error()
 					} else {
 						var i int64
 						for i = 0; i < countIO; i++ {
@@ -264,7 +267,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 							posInInput += 2
 							id, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 							if err != nil {
-								GPS.LastError = "error parse io element id 4b: " + err.Error()
+								T.GPS.LastError = "error parse io element id 4b: " + err.Error()
 							} else {
 								data = input[posInInput : posInInput+4]
 								posInInput += 4
@@ -272,7 +275,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 								if err == nil {
 									gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 								} else {
-									GPS.LastError = "error parse io param 4b: " + err.Error()
+									T.GPS.LastError = "error parse io param 4b: " + err.Error()
 								}
 							}
 						}
@@ -282,7 +285,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 					posInInput += 2
 					countIO, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64) // Кол-во датчиков разрядности 8 байт
 					if err != nil {
-						GPS.LastError = "error parse io element count 8b: " + err.Error()
+						T.GPS.LastError = "error parse io element count 8b: " + err.Error()
 					} else {
 						var i int64
 						for i = 0; i < countIO; i++ {
@@ -290,7 +293,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 							posInInput += 2
 							id, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 							if err != nil {
-								GPS.LastError = "error parse io element id 8b: " + err.Error()
+								T.GPS.LastError = "error parse io element id 8b: " + err.Error()
 							} else {
 								data = input[posInInput : posInInput+8]
 								posInInput += 8
@@ -298,7 +301,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 								if err == nil {
 									gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 								} else {
-									GPS.LastError = "error parse io param 8b: " + err.Error()
+									T.GPS.LastError = "error parse io param 8b: " + err.Error()
 								}
 							}
 						}
@@ -308,7 +311,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 					posInInput += 2
 					countIO, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64) // Nx
 					if err != nil {
-						GPS.LastError = "error parse io element count NXb: " + err.Error()
+						T.GPS.LastError = "error parse io element count NXb: " + err.Error()
 					} else {
 						var i int64
 						for i = 0; i < countIO; i++ {
@@ -316,11 +319,11 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 							posInInput += 2
 							id, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 							if err != nil {
-								GPS.LastError = "error parse io element id NXb: " + err.Error()
+								T.GPS.LastError = "error parse io element id NXb: " + err.Error()
 							} else {
 								lenght, err := strconv.ParseInt(hex.EncodeToString(data), 16, 64)
 								if err != nil {
-									GPS.LastError = "error parse len io param NXb: " + err.Error()
+									T.GPS.LastError = "error parse len io param NXb: " + err.Error()
 								} else {
 									data = input[posInInput : posInInput+int(lenght)]
 									posInInput += int(lenght)
@@ -328,7 +331,7 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 									if err == nil {
 										gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 									} else {
-										GPS.LastError = "error parse io param NXb: " + err.Error()
+										T.GPS.LastError = "error parse io param NXb: " + err.Error()
 									}
 								}
 							}
@@ -341,47 +344,51 @@ func parceGPSData8ECodec(input []byte, GPS models.GPSInfo, chkPar models.ChkPara
 
 		}
 
-		err = GPS.Chk(gpsData, chkPar)
+		err = T.GPS.Chk(gpsData, T.ChkPar)
 		if err != nil {
-			GPS.LastError = err.Error()
-		} else {
-			//GPS.LastError = ""
+			T.GPS.LastError = err.Error()
 		}
 
-		GPS.LastInfo = gpsData.DateTime.Format("02.01.06 ") + gpsData.ToString()
+		T.GPS.LastInfo = gpsData.DateTime.Format("02.01.06 ") + gpsData.ToString()
 
-		if GPS.LastError != "" || err != nil {
-			//save to error
+		if T.GPS.LastError != "" || err != nil {
 			var errGPS models.GPSInfo
-			errGPS = GPS
+			errGPS = T.GPS
 			errGPS.GpsD = gpsData
-			if err := errGPS.SaveToError(path); err != nil {
-				utils.ChkErrFatal(err)
-			}
+			listError = append(listError, errGPS)
 		} else {
-			//save to file
-			GPS.GpsD = gpsData
-			if err := GPS.SaveToFile(path); err != nil {
-				utils.ChkErrFatal(err)
-			}
+			T.GPS.GpsD = gpsData
+			mapToSave[gpsData.DateTime.Format("020106")] = append(mapToSave[gpsData.DateTime.Format("020106")], gpsData)
 		}
-
 	}
 
-	return GPS
+	if err := T.GPS.SaveErrorList(T.Path, listError); err != nil {
+		return err
+	}
+
+	if err := T.GPS.SaveToFileList(T.Path, mapToSave); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParams, path string) models.GPSInfo {
-	GPS.LastError = ""
-	GPS.LastInfo = ""
+func (T *Teltonika) ParceGPSData8Codec() error {
+	input := T.Input
+	T.GPS.LastError = ""
+	T.GPS.LastInfo = ""
 
 	countData := int(input[0])
-	GPS.CountData = []byte{0, 0, 0, byte(int8(countData))}
+	T.GPS.CountData = []byte{0, 0, 0, byte(int8(countData))}
 
 	posInInput := 1
 
+	mapToSave := make(map[string][]models.GPSData)
+	var listError []models.GPSInfo
+
 	for i := 0; i < countData; i++ {
 		var gpsData models.GPSData
+		T.GPS.LastError = ""
 
 		data := input[posInInput : posInInput+8]
 		posInInput += 8
@@ -392,7 +399,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 		if err == nil {
 			gpsData.DateTime = time.Unix(intData/1000, 0).In(time.UTC)
 		} else {
-			GPS.LastError = "error parse time: " + err.Error()
+			T.GPS.LastError = "error parse time: " + err.Error()
 		}
 
 		posInInput++ //Prioritet
@@ -405,7 +412,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 		if err == nil {
 			gpsData.Lng = float64(intData) / 10000000.0
 		} else {
-			GPS.LastError = "error parse lng: " + err.Error()
+			T.GPS.LastError = "error parse lng: " + err.Error()
 		}
 
 		//Lat
@@ -416,7 +423,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 		if err == nil {
 			gpsData.Lat = float64(intData) / 10000000.0
 		} else {
-			GPS.LastError = "error parse lat: " + err.Error()
+			T.GPS.LastError = "error parse lat: " + err.Error()
 		}
 
 		//2b - Altitude In meters above sea level1
@@ -425,7 +432,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 		encodedStr = hex.EncodeToString(data)
 		gpsData.Alt, err = strconv.ParseInt(encodedStr, 16, 16)
 		if err != nil {
-			GPS.LastError = "error parse altitude: " + err.Error()
+			T.GPS.LastError = "error parse altitude: " + err.Error()
 		}
 
 		//2b - Angle In degrees, 0 is north, increasing clock-wise 1
@@ -434,7 +441,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 		encodedStr = hex.EncodeToString(data)
 		gpsData.Angle, err = strconv.ParseInt(encodedStr, 16, 16)
 		if err != nil {
-			GPS.LastError = "error parse angle: " + err.Error()
+			T.GPS.LastError = "error parse angle: " + err.Error()
 		}
 
 		//1b - Satellites Number of visible satellites1
@@ -447,7 +454,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 		encodedStr = hex.EncodeToString(data)
 		gpsData.Speed, err = strconv.ParseInt(encodedStr, 16, 16)
 		if err != nil {
-			GPS.LastError = "error parse speed: " + err.Error()
+			T.GPS.LastError = "error parse speed: " + err.Error()
 		}
 
 		//posInInput = 34
@@ -489,7 +496,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 							gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 						}
 					} else {
-						GPS.LastError = "error parse io param 2b: " + err.Error()
+						T.GPS.LastError = "error parse io param 2b: " + err.Error()
 					}
 				}
 			case 2:
@@ -505,7 +512,7 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 					if err == nil {
 						gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 					} else {
-						GPS.LastError = "error parse io param 4b: " + err.Error()
+						T.GPS.LastError = "error parse io param 4b: " + err.Error()
 					}
 				}
 			case 3:
@@ -521,38 +528,37 @@ func parceGPSData8Codec(input []byte, GPS models.GPSInfo, chkPar models.ChkParam
 					if err == nil {
 						gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id %d=%d;", id, d))
 					} else {
-						GPS.LastError = "error parse io param 8b: " + err.Error()
+						T.GPS.LastError = "error parse io param 8b: " + err.Error()
 					}
 				}
 			}
 		}
 
-		err = GPS.Chk(gpsData, chkPar)
+		err = T.GPS.Chk(gpsData, T.ChkPar)
 		if err != nil {
-			GPS.LastError = err.Error()
-		} else {
-			GPS.LastError = ""
+			T.GPS.LastError = err.Error()
 		}
 
-		GPS.LastInfo = gpsData.DateTime.Format("02.01.06 ") + gpsData.ToString()
+		T.GPS.LastInfo = gpsData.DateTime.Format("02.01.06 ") + gpsData.ToString()
 
-		if GPS.LastError != "" || err != nil {
-			//save to error
+		if T.GPS.LastError != "" || err != nil {
 			var errGPS models.GPSInfo
-			errGPS = GPS
+			errGPS = T.GPS
 			errGPS.GpsD = gpsData
-			if err := errGPS.SaveToError(path); err != nil {
-				utils.ChkErrFatal(err)
-			}
+			listError = append(listError, errGPS)
 		} else {
-			//save to file
-			GPS.GpsD = gpsData
-			if err := GPS.SaveToFile(path); err != nil {
-				utils.ChkErrFatal(err)
-			}
+			T.GPS.GpsD = gpsData
+			mapToSave[gpsData.DateTime.Format("020106")] = append(mapToSave[gpsData.DateTime.Format("020106")], gpsData)
 		}
-
 	}
 
-	return GPS
+	if err := T.GPS.SaveErrorList(T.Path, listError); err != nil {
+		return err
+	}
+
+	if err := T.GPS.SaveToFileList(T.Path, mapToSave); err != nil {
+		return err
+	}
+
+	return nil
 }
