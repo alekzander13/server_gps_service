@@ -28,6 +28,37 @@ type GPSInfo struct {
 	GpsD        GPSData `json:"-"`
 }
 
+func (g *GPSInfo) SaveODPList(path string, sl []string) error {
+	if len(sl) < 1 {
+		return nil
+	}
+
+	if path == "" {
+		path = utils.GetPathWhereExe()
+	}
+	path += "/ODP/"
+
+	if err := os.MkdirAll(path, 0777); err != nil {
+		return err
+	}
+
+	path += g.Name + ".txt"
+
+	strToSave := ""
+
+	for _, v := range sl {
+		strToSave += fmt.Sprintf("%s\r\n", v)
+	}
+
+	if file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0777); err != nil {
+		return err
+	} else {
+		defer file.Close()
+		_, err := file.WriteString(strToSave)
+		return err
+	}
+}
+
 func (g *GPSInfo) SaveToError(path string) error {
 	if path == "" {
 		path = utils.GetPathWhereExe()
