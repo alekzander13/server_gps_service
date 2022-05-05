@@ -98,7 +98,7 @@ func (T *GryphonPro) ParceGPSData() error {
 		if err == nil {
 			gpsData.DateTime = time.Unix(intData, 0).In(time.UTC)
 			if gpsData.DateTime.Before(time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC)) ||
-				gpsData.DateTime.Before(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)) {
+				gpsData.DateTime.After(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)) {
 				gpsData.DateTime = gpsData.DateTime.AddDate(-100, 0, 0)
 				gpsData.DateTime = gpsData.DateTime.AddDate(0, 0, 7168)
 			}
@@ -182,7 +182,7 @@ func (T *GryphonPro) ParceGPSData() error {
 					gpsData.AccV = float64(intData) / 100
 				}
 			case 32:
-				gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("GPS=%d;", intData))
+				gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("StatusGPS=%d;", intData))
 			case 125:
 				if intData > 0 {
 					intData = 1
@@ -208,6 +208,8 @@ func (T *GryphonPro) ParceGPSData() error {
 				gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("An3=%d;", intData))
 			case 104:
 				gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("An4=%d;", intData))
+			case 44:
+				gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("PowerGPS=%d;", intData))
 			default:
 				gpsData.OtherID = append(gpsData.OtherID, fmt.Sprintf("id%d=%d;", id, intData))
 			}
@@ -262,14 +264,16 @@ func (T *GryphonPro) ParceODPData() error {
 
 		encodedStr := hex.EncodeToString(data)
 		intData, err := strconv.ParseInt(encodedStr, 16, 64)
-		dt := time.Now()
+		var dt time.Time
 		if err == nil {
 			dt = time.Unix(intData, 0).In(time.UTC)
 			if dt.Before(time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC)) ||
-				dt.Before(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)) {
+				dt.After(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)) {
 				dt = dt.AddDate(-100, 0, 0)
 				dt = dt.AddDate(0, 0, 7168)
 			}
+		} else {
+			fmt.Println(err)
 		}
 		sb.WriteString(dt.Format("02.01.2006 15:04:05;"))
 
@@ -285,7 +289,7 @@ func (T *GryphonPro) ParceODPData() error {
 				sb.WriteString(fmt.Sprintf("AccV=%.2f;", float64(intData)/100))
 			}
 		case 32:
-			sb.WriteString(fmt.Sprintf("GPS=%d;", intData))
+			sb.WriteString(fmt.Sprintf("StatusGPS=%d;", intData))
 		case 125:
 			if intData > 0 {
 				intData = 1
@@ -308,6 +312,8 @@ func (T *GryphonPro) ParceODPData() error {
 			sb.WriteString(fmt.Sprintf("An3=%d;", intData))
 		case 104:
 			sb.WriteString(fmt.Sprintf("An4=%d;", intData))
+		case 44:
+			sb.WriteString(fmt.Sprintf("PowerGPS=%d;", intData))
 		default:
 			sb.WriteString(fmt.Sprintf("id%d=%d;", id, intData))
 		}

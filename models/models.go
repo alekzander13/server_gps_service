@@ -148,7 +148,6 @@ func (g *GPSInfo) SaveToFileList(path string, info map[string][]GPSData) error {
 	}
 
 	for d, v := range info {
-		fmt.Println("save list data", len(v))
 		if len(v) < 1 {
 			continue
 		}
